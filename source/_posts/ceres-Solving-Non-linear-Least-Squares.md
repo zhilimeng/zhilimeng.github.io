@@ -3,6 +3,7 @@ title: ceres-求解非线性最小二乘
 date: 2019-09-15 09:40:21
 tags: [non-linear least squares]
 categories: SLAM
+mathjax: true
 ---
 ## 非线性最小二乘问题求解
 ### 引言
