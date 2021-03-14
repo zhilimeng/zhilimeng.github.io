@@ -1,5 +1,5 @@
 ---
-title: ceres-求解非线性最小二乘
+title: ceres-Solving non-linear least squares problem
 date: 2019-09-15 09:40:21
 tags: [non-linear least squares]
 categories: SLAM
@@ -10,14 +10,19 @@ mathjax: true
 有效使用Ceres需要熟悉非线性最小二乘求解器的一些基础组成部分，所以在描述怎么配置和使用求解器之前，先来简单看一下Ceres中的一些核心优化算法是如何工作的。   
 
 令 $x \in \mathbb{R}^n$ 是变量的一个 $n$ 维向量， $F(x) = \left[f_1(x), ... ,  f_{m}(x) \right]^{\top}$ 是 $x$ 的 $m$ 维函数。优化问题描述如下：
-$$ \begin{split}\arg \min_x \frac{1}{2}\|F(x)\|^2  \\
-L \le x \le U\end{split}  \tag{1}$$   
+$$ 
+\begin{split}\arg \min_x \frac{1}{2}\|F(x)\|^2  \\
+L \le x \le U\end{split}  \tag{1}
+$$   
 这里， $L$ 和 $U$ 是参数向量 $x$ 的上下边界。   
 
 由于对于一般的 $F(x)$ ，很难有有效的全局最小化方法，一般通过寻找局部最小化来解决。 $F(x)$ 的雅可比矩阵 $J(x)$ 是一个 $m \times n$ 的矩阵。这里， $J_{ij}(x) = \partial_j f_i(x)$ ，梯度向量为 $g(x) = \nabla \frac{1}{2}\|F(x)\|^2 = J(x)^\top F(x)$。   
 
  解决非线性优化问题的一般策略是通过解决原始问题的一系列近似。在一次迭代中，求解近似来得到向量 $x$ 的一个校正量 $\Delta x$，对于非线性最小二乘，通过线性化来构造近似 $F(x+\Delta x) \approx F(x) + J(x)\Delta x$，这就得到了下边的线性最小二乘问题：
- $$\min_{\Delta x} \frac{1}{2}\|J(x)\Delta x + F(x)\|^2\quad(2)$$
+
+ $$
+ \min_{\Delta x} \frac{1}{2}\|J(x)\Delta x + F(x)\|^2\quad(2)
+ $$
  不幸的是，简单地求解一系列这些问题并更新 $x \leftarrow x+ \Delta x$ 会导致算法不收敛。为了得到一个收敛的算法，我们需要控制步长 $\Delta x$ 的大小。 根据如何控制步长 $\Delta x$ 的大小，非线性优化算法可以分为两大类：
  1. **信赖域（Trust Region)**
     信赖域方法在搜索空间（称为信赖域）的一个子集上利用模型函数来近似目标函数，如果模型函数成功地最小化真正地目标函数，信赖域就会扩大，反之缩小，再次求解模型优化问题。
@@ -31,10 +36,13 @@ L \le x \le U\end{split}  \tag{1}$$
   1. 给定一个初始点 $x$ 和 一个信赖域半径 $\mu$ 。
   2. 求解
      $$\begin{split}\arg \min_{\Delta x}& \frac{1}{2}\|J(x)\Delta x + F(x)\|^2 \\ \text{such that} &\|D(x)\Delta x\|^2 \le \mu\\
-     &L \le x + \Delta x \le U.\end{split}$$
-  3. $$\rho = \frac{\displaystyle \|F(x + \Delta x)\|^2 -
+     &L \le x + \Delta x \le U.\end{split}
+     $$
+  3. $$
+      \rho = \frac{\displaystyle \|F(x + \Delta x)\|^2 -
        \|F(x)\|^2}{\displaystyle \|J(x)\Delta x + F(x)\|^2 -
-       \|F(x)\|^2}$$
+       \|F(x)\|^2}
+      $$
   4. 如果 $\rho > \epsilon$ 则 $x = x + \Delta x$
   5. 如果 $\rho > \eta_1$ 则 $\mu = 2\mu$
   6. 如果 $\rho < \eta_2$ 则 $\mu = 0.5 * \mu$
@@ -42,9 +50,11 @@ L \le x \le U\end{split}  \tag{1}$$
 这里，$\mu$ 是信赖域半径， $D(x)$ 矩阵定义了 $F(x)$ 域上的度量。$\rho$ 测量步长 $\Delta x$ 的质量，例如，线性模型在非线性目标值里预测下降有多好。通过线性化预测非线性目标的行为有多好来决定增大或减小信赖域的范围。   
 
 信赖域方法的关键步骤求解带约束的优化问题
-$$\begin{split}\arg \min_{\Delta x}&\quad \frac{1}{2}\|J(x)\Delta x + F(x)\|^2 \\
+$$
+\begin{split}\arg \min_{\Delta x}&\quad \frac{1}{2}\|J(x)\Delta x + F(x)\|^2 \\
 \text{such that} &\quad \|D(x)\Delta x\|^2 \le \mu\\
- &\quad L \le x + \Delta x \le U.\end{split}\quad (3)$$
+ &\quad L \le x + \Delta x \le U.\end{split}\quad (3)
+$$
  Ceres实现了两种信赖域方法：Levenberg-Marquardt 和 Dogleg。
 
  #### Levenberg-Marquardt

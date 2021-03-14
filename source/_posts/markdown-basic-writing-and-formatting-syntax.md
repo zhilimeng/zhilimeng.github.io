@@ -1,7 +1,7 @@
 ---
 title: Markdown basic writing and formatting syntax
 date: 2018-11-11 00:51:28
-tags: [markdown,tools,study]
+tags: [markdown,tools]
 categories: Tools
 ---
 ### 1.标题
@@ -18,12 +18,12 @@ categories: Tools
 
 ### 2.文本样式
 
-|样式|语法|示例|输出|
-| :------:| :------: | :------: |:-:|
-| 加粗 | `** **`or `__ __` | `**This is bold test**` |**This is bold test**|
-|斜体|`* *` or `_ _`|`*This text is italicized*`|*This is italicized*|
-|删除线|`~~ ~~`|`~~This was mistaken text~~`|~~This was mistaken text~~|
-|斜体加粗|`** **` and `_ _`|`**This text is _extremely_ important**`|**This text is _extremely_ important**|
+|   样式   |       语法        |                   示例                   |                  输出                  |
+| :------: | :---------------: | :--------------------------------------: | :------------------------------------: |
+|   加粗   | `** **`or `__ __` |         `**This is bold test**`          |         **This is bold test**          |
+|   斜体   |  `* *` or `_ _`   |       `*This text is italicized*`        |          *This is italicized*          |
+|  删除线  |      `~~ ~~`      |       `~~This was mistaken text~~`       |       ~~This was mistaken text~~       |
+| 斜体加粗 | `** **` and `_ _` | `**This text is _extremely_ important**` | **This text is _extremely_ important** |
 
 ### 3.引用
 你可以用符号`>`来引用文本，例如：

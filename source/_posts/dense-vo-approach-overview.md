@@ -1,8 +1,9 @@
 ---
-title: RGBD直接法公式推导
+title: dense vo- direct method
 date: 2019-01-29 10:11:04
-tags: [registration,icp]
+tags: [registration,RGBD]
 categories: SLAM
+mathjax: true
 ---
 ## 基础知识
 ### 相机模型

@@ -1,8 +1,8 @@
 ---
 title: ICP算法及其变种
 date: 2018-12-17 00:06:01
-tags: [registration,icp]
-categories: Registration
+tags: [registration,ICP]
+categories: SLAM
 ---
 ## 前言
 ICP算法广泛应用于已知初始相对位姿的三维模型的几何对齐，通过在网格或点云上重复生成一致性点并最小化误差度量来迭代精化变换矩阵，一致性点对通过查找最邻近点生成，因此称作迭代最邻近点（ICP,Iterative Closest Point)。自从ICP算法提出以后，产生了许多基于ICP概念的变种方法。ICP算法可以分为六个步骤，每个步骤可以选择不同的策略：   

@@ -1,8 +1,9 @@
 ---
-title: Point-to-Plane ICP算法原理及实现
+title: Linear point-to-plane ICP method 
 date: 2019-01-05 22:32:55
-tags: [registration,icp]
-categories: Registration
+tags: [registration,ICP]
+categories: SLAM
+mathjax: true
 ---
 ## 摘要
 ICP算法中选择点到平面的误差度量比点到点的误差度量要收敛得更快，在ICP算法得每次迭代中最小化点到平面误差通常是一个标准非线性最小二乘问题，求解通常非常慢，但两帧点云之间的旋转角度较小时，可以近似为线性最小二乘问题。
