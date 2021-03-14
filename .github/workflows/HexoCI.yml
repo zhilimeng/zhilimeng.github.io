@@ -28,7 +28,9 @@ jobs:
           git config --global user.email "mzl_whu@163.com"
           git config --global user.name "zhilimeng"
           npm install hexo-cli -g
-          npm install hexo-renderer-pandoc
+          wget https://github.com/jgm/pandoc/releases/download/2.12/pandoc-2.12-1-amd64.deb
+          sudo dpkg -i pandoc-2.12-1-amd64.deb
+          npm install hexo-renderer-pandoc --save
           npm install hexo-image-link
           npm install
       - name: Hexo deploy
