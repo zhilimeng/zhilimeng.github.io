@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/source/images/favicon-32x32-me.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/source/images/favicon-16x16-me.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","images":"/images","scheme":"Gemini","version":"8.2.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}};
+  </script>
+<meta name="description" content="用ceres解决非线性最小二乘问题 google的开源优化库ceres可以用来解决稳健的边界约束非线性最小二乘问题，形式如下： \[\min_x \frac{1}{2}\sum_{i}\rho_i({||f_i(x_{i1},\cdots,x_{ik})||}^2)\] \[ s.t. l_j \leq x_j \leq u_j\] 在ceres中，表达式 \(\rho_i({||f_i(x_{i">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ceres-Modeling Non-Linear Least Squares">
+<meta property="og:url" content="http://example.com/2019/05/12/ceres-modeling-non-linear-least-squares/index.html">
+<meta property="og:site_name" content="Meng&#39;s Blog">
+<meta property="og:description" content="用ceres解决非线性最小二乘问题 google的开源优化库ceres可以用来解决稳健的边界约束非线性最小二乘问题，形式如下： \[\min_x \frac{1}{2}\sum_{i}\rho_i({||f_i(x_{i1},\cdots,x_{ik})||}^2)\] \[ s.t. l_j \leq x_j \leq u_j\] 在ceres中，表达式 \(\rho_i({||f_i(x_{i">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-05-12T20:57:53.000Z">
+<meta property="article:modified_time" content="2021-10-01T19:49:30.625Z">
+<meta property="article:author" content="Meng Zhili">
+<meta property="article:tag" content="non-linear least squares">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://example.com/2019/05/12/ceres-modeling-non-linear-least-squares/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Ceres-Modeling Non-Linear Least Squares | Meng's Blog</title>
+  
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Meng's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">To be rock not to roll</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%A8ceres%E8%A7%A3%E5%86%B3%E9%9D%9E%E7%BA%BF%E6%80%A7%E6%9C%80%E5%B0%8F%E4%BA%8C%E4%B9%98%E9%97%AE%E9%A2%98"><span class="nav-number">1.</span> <span class="nav-text">用ceres解决非线性最小二乘问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E4%BB%B7%E5%87%BD%E6%95%B0"><span class="nav-number">1.1.</span> <span class="nav-text">代价函数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%90%86%E8%AE%BA"><span class="nav-number">2.</span> <span class="nav-text">理论</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#problem"><span class="nav-number">3.</span> <span class="nav-text">Problem</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Meng Zhili"
+      src="/images/blog-logo.jpg">
+  <p class="site-author-name" itemprop="name">Meng Zhili</p>
+  <div class="site-description" itemprop="description">focus creates reality</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/zhilimeng" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;zhilimeng" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://mengzhili_whu@163.com/" title="E-Mail → https:&#x2F;&#x2F;mengzhili_whu@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2019/05/12/ceres-modeling-non-linear-least-squares/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/blog-logo.jpg">
+      <meta itemprop="name" content="Meng Zhili">
+      <meta itemprop="description" content="focus creates reality">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Meng's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Ceres-Modeling Non-Linear Least Squares
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-05-12 20:57:53" itemprop="dateCreated datePublished" datetime="2019-05-12T20:57:53+00:00">2019-05-12</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2021-10-01 19:49:30" itemprop="dateModified" datetime="2021-10-01T19:49:30+00:00">2021-10-01</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/SLAM/" itemprop="url" rel="index"><span itemprop="name">SLAM</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="用ceres解决非线性最小二乘问题">用ceres解决非线性最小二乘问题</h2>
+<p>google的开源优化库ceres可以用来解决稳健的边界约束非线性最小二乘问题，形式如下： <span class="math display">\[\min_x \frac{1}{2}\sum_{i}\rho_i({||f_i(x_{i1},\cdots,x_{ik})||}^2)\]</span> <span class="math display">\[ s.t. l_j \leq x_j \leq u_j\]</span> 在ceres中，表达式 <span class="math inline">\(\rho_i({||f_i(x_{i1},\cdots,x_{ik})||}^2)\)</span> 称作残差块(residual block)， <span class="math inline">\(f_i(\cdot)\)</span> 是代价函数(<code>CostFunction</code>)， <span class="math inline">\({x_{i1},\cdots,x_{ik}}\)</span> 为参数块(parameter blocks)。<span class="math inline">\(\rho_i\)</span> 是损失函数(<code>LossFunction</code>)，损失函数是一个标量方程用来减少非线性最小二乘问题中局外点的影响，又称为核函数。<span class="math inline">\(l_j\)</span> 和 <span class="math inline">\(u_j\)</span> 是参数块 <span class="math inline">\(x_j\)</span> 的上下范围。<br />
+特殊情况下，当 <span class="math inline">\(\rho_i(x) =x\)</span>，而且 <span class="math inline">\(l_j = -\infty\)</span> ， <span class="math inline">\(u_j = \infty\)</span> 就得到常见的无约束非线性最小二乘问题： <span class="math display">\[\frac12\sum_{i}{||f_i(x_{i1},\cdots,x_{ik})||}^2\]</span></p>
+<h3 id="代价函数">代价函数</h3>
+<p>对于目标函数的每一项，代价函数用来计算残差向量和雅可比矩阵，具体来说，考虑函数 <span class="math inline">\(f(x_1,\cdots,x_k)\)</span>，其参数块为 <span class="math inline">\([x_1,\cdots,x_k]\)</span>。给定参数块 <span class="math inline">\([x_1,\cdots,x_k]\)</span> ，代价函数负责计算残差向量 <span class="math inline">\(f(x_1,\cdots,x_k)\)</span> 和雅可比矩阵 <span class="math display">\[J_i =  \frac{\partial}{\partial x_i} f(x_1, ..., x_k) \quad \forall i \in \{1, \ldots, k\} \]</span> ceres 提供了多种代价函数，它们都派生与基类<code>CostFunction</code>，它有两个重要的成员变量<code>CostFunction::parameter_block_sizes_</code>和<code>CostFunction::num_residuals_</code>，分别表示参数块的大小和残差的个数。 #### SizedCostFunction 如果参数块的大小和残差向量的大小在编译时期是已知的，这时候就可以使用<code>SizedCostFunction</code>，参数通过模板参数指定，用户只需实现<code>CostFunction::Evaluate()</code>。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">template&lt;int kNumResiduals,</span><br><span class="line">         int N0 &#x3D; 0, int N1 &#x3D; 0, int N2 &#x3D; 0, int N3 &#x3D; 0, int N4 &#x3D; 0,</span><br><span class="line">         int N5 &#x3D; 0, int N6 &#x3D; 0, int N7 &#x3D; 0, int N8 &#x3D; 0, int N9 &#x3D; 0&gt;</span><br><span class="line">class SizedCostFunction : public CostFunction &#123;</span><br><span class="line"> public:</span><br><span class="line">  virtual bool Evaluate(double const* const* parameters,</span><br><span class="line">                        double* residuals,</span><br><span class="line">                        double** jacobians) const &#x3D; 0;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> #### AutoDiffCostFunction 定义一个<code>CostFunction</code>或<code>SizedCostFunction</code>是比较麻烦和容易出错的，尤其在计算导数的时候，Ceres提供了自动差分方法,是最常用的代价函数。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename CostFunctor,</span><br><span class="line">       int kNumResiduals,  &#x2F;&#x2F; Number of residuals, or ceres::DYNAMIC.</span><br><span class="line">       int N0,       &#x2F;&#x2F; Number of parameters in block 0.</span><br><span class="line">       int N1 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 1.</span><br><span class="line">       int N2 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 2.</span><br><span class="line">       int N3 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 3.</span><br><span class="line">       int N4 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 4.</span><br><span class="line">       int N5 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 5.</span><br><span class="line">       int N6 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 6.</span><br><span class="line">       int N7 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 7.</span><br><span class="line">       int N8 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 8.</span><br><span class="line">       int N9 &#x3D; 0&gt;   &#x2F;&#x2F; Number of parameters in block 9.</span><br><span class="line">class AutoDiffCostFunction : public</span><br><span class="line">SizedCostFunction&lt;kNumResiduals, N0, N1, N2, N3, N4, N5, N6, N7, N8, N9&gt; &#123;</span><br><span class="line"> public:</span><br><span class="line">  explicit AutoDiffCostFunction(CostFunctor* functor);</span><br><span class="line">  &#x2F;&#x2F; Ignore the template parameter kNumResiduals and use</span><br><span class="line">  &#x2F;&#x2F; num_residuals instead.</span><br><span class="line">  AutoDiffCostFunction(CostFunctor* functor, int num_residuals);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 为了得到一个自动差分代价函数，你必须定义一个带有模板操作符()的类（函数对象）作为模板参数<code>T</code>。为了计算导数，自动差分框架会在需要的时候为<code>T</code>替换合适的<code>Jet</code>对象，但这是隐藏的。这个函数必须把计算的值写入到最后一个参数中（唯一的非const参数）并返回<code>true</code>。<br />
+例如，考虑一个标量误差 <span class="math inline">\(e = k - x^\top y\)</span>，<code>x</code>和<code>y</code>都是二维向量参数，<code>k</code>是一个常量。这种常量和表达式的差形式的误差是最小二乘问题中的常见模式。例如，<span class="math inline">\(x^\top y\)</span> 可能是一系列观测值的模型期望，对于每个观测值都有一个代价函数的实例。<br />
+添加到最小二乘问题中的实际代价是 <span class="math inline">\(e^2\)</span> ，或者 <span class="math inline">\((k - x^\top y)^2\)</span>；平方向由优化框架隐式完成。 要写出上述模型的一个自动差分代价函数，首先定义个函数对象： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">class MyScalarCostFunctor &#123;</span><br><span class="line">  MyScalarCostFunctor(double k): k_(k) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  template &lt;typename T&gt;</span><br><span class="line">  bool operator()(const T* const x , const T* const y, T* e) const &#123;</span><br><span class="line">    e[0] &#x3D; k_ - x[0] * y[0] - x[1] * y[1];</span><br><span class="line">    return true;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  double k_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 注意<code>operator()</code>的声明，首先是输入参数<code>x</code>和<code>y</code>,是一个指向类型为<code>T</code>的数组的常量指针。输出项总是最后一个参数，也是指向数组的指针，在上述例子中，<code>e</code>是一个标量，所以只有<code>e[0]</code>被赋值。<br />
+定义了这个类后，自动差分代价函数可以按下边的方式构造： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CostFunction* cost_function</span><br><span class="line">    &#x3D; new AutoDiffCostFunction&lt;MyScalarCostFunctor, 1, 2, 2&gt;(</span><br><span class="line">        new MyScalarCostFunctor(1.0));              ^  ^  ^</span><br><span class="line">                                                    |  |  |</span><br><span class="line">                        Dimension of residual ------+  |  |</span><br><span class="line">                        Dimension of x ----------------+  |</span><br><span class="line">                        Dimension of y -------------------+</span><br></pre></td></tr></table></figure> 在这个例子中，每个测量值<code>k</code>都有一个实例。模板参数<code>MyScalarCostFunction,&lt;1,2,2&gt;</code>描述了函数对象从两个二维参数中计算一个一维输出。 <code>AutoDiffCostFunction</code>还支持运行时决定残差个数，例如： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">CostFunction* cost_function</span><br><span class="line">    &#x3D; new AutoDiffCostFunction&lt;MyScalarCostFunctor, DYNAMIC, 2, 2&gt;(</span><br><span class="line">        new CostFunctorWithDynamicNumResiduals(1.0),   ^     ^  ^</span><br><span class="line">        runtime_number_of_residuals); &lt;----+           |     |  |</span><br><span class="line">                                           |           |     |  |</span><br><span class="line">                                           |           |     |  |</span><br><span class="line">          Actual number of residuals ------+           |     |  |</span><br><span class="line">          Indicate dynamic number of residuals --------+     |  |</span><br><span class="line">          Dimension of x ------------------------------------+  |</span><br><span class="line">          Dimension of y ---------------------------------------+</span><br></pre></td></tr></table></figure> #### DynamicAutoDiffCostFunction <code>AutoDiffCostFunction</code>需要在编译期知道参数块的个数和大小。还有参数块数量的限制，最多十个。在许多应用中，这是不够的，例如，贝塞尔曲线拟合。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename CostFunctor, int Stride &#x3D; 4&gt;</span><br><span class="line">class DynamicAutoDiffCostFunction : public CostFunction &#123;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 和<code>AutoDiffCostFunction</code>一样，用户必须定义一个模板函数对象，但是函数签名有些不同，形式如下： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">struct MyCostFunctor &#123;</span><br><span class="line">  template&lt;typename T&gt;</span><br><span class="line">  bool operator()(T const* const* parameters, T* residuals) const &#123;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure> 由于参数的的大小是在运行时决定的，在创建动态差分代价函数之后你必须说明参数大小，例如： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">DynamicAutoDiffCostFunction&lt;MyCostFunctor, 4&gt;* cost_function &#x3D;</span><br><span class="line">  new DynamicAutoDiffCostFunction&lt;MyCostFunctor, 4&gt;(</span><br><span class="line">    new MyCostFunctor());</span><br><span class="line">cost_function-&gt;AddParameterBlock(5);</span><br><span class="line">cost_function-&gt;AddParameterBlock(10);</span><br><span class="line">cost_function-&gt;SetNumResiduals(21);</span><br></pre></td></tr></table></figure> #### NumericDiffCostFunction 在一些情况下，定义一个模板代价函数对象是不可能的，例如当评价残差涉及到调用你没有控制权的库函数。这种情况下，可以使用数值差分。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename CostFunctor,</span><br><span class="line">          NumericDiffMethodType method &#x3D; CENTRAL,</span><br><span class="line">          int kNumResiduals,  &#x2F;&#x2F; Number of residuals, or ceres::DYNAMIC.</span><br><span class="line">          int N0,       &#x2F;&#x2F; Number of parameters in block 0.</span><br><span class="line">          int N1 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 1.</span><br><span class="line">          int N2 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 2.</span><br><span class="line">          int N3 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 3.</span><br><span class="line">          int N4 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 4.</span><br><span class="line">          int N5 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 5.</span><br><span class="line">          int N6 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 6.</span><br><span class="line">          int N7 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 7.</span><br><span class="line">          int N8 &#x3D; 0,   &#x2F;&#x2F; Number of parameters in block 8.</span><br><span class="line">          int N9 &#x3D; 0&gt;   &#x2F;&#x2F; Number of parameters in block 9.</span><br><span class="line">class NumericDiffCostFunction : public</span><br><span class="line">SizedCostFunction&lt;kNumResiduals, N0, N1, N2, N3, N4, N5, N6, N7, N8, N9&gt; &#123;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 对于一个标量误差 <span class="math inline">\(e = k - x&#39;y\)</span> 数值差分函数对象定义如下： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">class MyScalarCostFunctor &#123;</span><br><span class="line">  MyScalarCostFunctor(double k): k_(k) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  bool operator()(const double* const x,</span><br><span class="line">                  const double* const y,</span><br><span class="line">                  double* residuals) const &#123;</span><br><span class="line">    residuals[0] &#x3D; k_ - x[0] * y[0] + x[1] * y[1];</span><br><span class="line">    return true;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  double k_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 利用中心差分计算导数的数值差分代价函数可以如下构造： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">CostFunction* cost_function</span><br><span class="line">    &#x3D; new NumericDiffCostFunction&lt;MyScalarCostFunctor, CENTRAL, 1, 2, 2&gt;(</span><br><span class="line">        new MyScalarCostFunctor(1.0));                    ^     ^  ^  ^</span><br><span class="line">                                                          |     |  |  |</span><br><span class="line">                              Finite Differencing Scheme -+     |  |  |</span><br><span class="line">                              Dimension of residual ------------+  |  |</span><br><span class="line">                              Dimension of x ----------------------+  |</span><br><span class="line">                              Dimension of y -------------------------+</span><br></pre></td></tr></table></figure> NumericDiffCostFunction也支持运行时决定残差大小。 #### DynamicNumericDiffCostFunction 对于<code>AutoDiffCostFunction</code>，<code>NumericDiffCostFunction</code>，需要在编译期知道参数块的个数和大小，只支持对多10个参数块，在许多情况下，这是不够的,这是可以使用<code>DynamicNumericDiffCostFunction</code>。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">template &lt;typename CostFunctor, NumericDiffMethodType method &#x3D; CENTRAL&gt;</span><br><span class="line">class DynamicNumericDiffCostFunction : public CostFunction &#123;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 像<code>NumericDiffCostFunction</code>一样，用户必须定义一个函数对象，但是函数签名有些不同。例如： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">struct MyCostFunctor &#123;</span><br><span class="line">  bool operator()(double const* const* parameters, double* residuals) const &#123;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure> 参数大小在运行时决定，在创建动态数值差分代价函数时你必须说明参数大小。例如： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">DynamicNumericDiffCostFunction&lt;MyCostFunctor&gt;* cost_function &#x3D;</span><br><span class="line">  new DynamicNumericDiffCostFunction&lt;MyCostFunctor&gt;(new MyCostFunctor);</span><br><span class="line">cost_function-&gt;AddParameterBlock(5);</span><br><span class="line">cost_function-&gt;AddParameterBlock(10);</span><br><span class="line">cost_function-&gt;SetNumResiduals(21);</span><br></pre></td></tr></table></figure> #### CostFunctionToFunctor <code>CostFunctionToFunctor</code> 是一个适配器类允许用户在模板函数对象中使用<code>CostFuntion</code>对象，模板函数用来自动差分。例如： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">class IntrinsicProjection : public SizedCostFunction&lt;2, 5, 3&gt; &#123;</span><br><span class="line">  public:</span><br><span class="line">    IntrinsicProjection(const double* observation);</span><br><span class="line">    virtual bool Evaluate(double const* const* parameters,</span><br><span class="line">                          double* residuals,</span><br><span class="line">                          double** jacobians) const;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 是一个<code>CostFunction</code>实现一个在局部坐标系下的点到它的像平面的投影并从观测点投影减去它。可以计算它的残差或者通过解析或数值差分计算其雅可比。 现在我们想将这个<code>CostFunction</code>和相机外参组合起来。假设我们由一个模板函数 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">template&lt;typename T&gt;</span><br><span class="line">void RotateAndTranslatePoint(const T* rotation,</span><br><span class="line">                             const T* translation,</span><br><span class="line">                             const T* point,</span><br><span class="line">                             T* result);</span><br></pre></td></tr></table></figure> 我们可以像下面这样做： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">struct CameraProjection &#123;</span><br><span class="line">  CameraProjection(double* observation)</span><br><span class="line">  : intrinsic_projection_(new IntrinsicProjection(observation)) &#123;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  template &lt;typename T&gt;</span><br><span class="line">  bool operator()(const T* rotation,</span><br><span class="line">                  const T* translation,</span><br><span class="line">                  const T* intrinsics,</span><br><span class="line">                  const T* point,</span><br><span class="line">                  T* residual) const &#123;</span><br><span class="line">    T transformed_point[3];</span><br><span class="line">    RotateAndTranslatePoint(rotation, translation, point, transformed_point);</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; Note that we call intrinsic_projection_, just like it was</span><br><span class="line">    &#x2F;&#x2F; any other templated functor.</span><br><span class="line">    return intrinsic_projection_(intrinsics, transformed_point, residual);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  CostFunctionToFunctor&lt;2,5,3&gt; intrinsic_projection_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 注意<code>CostFunctionToFunctor</code>在构造函数里获得了<code>CostFunction</code>的所有权。 在上边的例子中，我们假定<code>IntrinsicProjection</code>是一个<code>CostFunction</code>，能够评价它的值和导数。如果不是这样，<code>IntrinsicProjection</code>定义如下： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">struct IntrinsicProjection</span><br><span class="line">  IntrinsicProjection(const double* observation) &#123;</span><br><span class="line">    observation_[0] &#x3D; observation[0];</span><br><span class="line">    observation_[1] &#x3D; observation[1];</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  bool operator()(const double* calibration,</span><br><span class="line">                  const double* point,</span><br><span class="line">                  double* residuals) &#123;</span><br><span class="line">    double projection[2];</span><br><span class="line">    ThirdPartyProjectionFunction(calibration, point, projection);</span><br><span class="line">    residuals[0] &#x3D; observation_[0] - projection[0];</span><br><span class="line">    residuals[1] &#x3D; observation_[1] - projection[1];</span><br><span class="line">    return true;</span><br><span class="line">  &#125;</span><br><span class="line"> double observation_[2];</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 这里<code>ThirdPartyProjectionFunction</code>是我们不能控制的第三方库函数。所以这个函数可以计算它的值，我们想用数值差分来计算它的导数，这种情况下，我们使用<code>NumericDiffCostFunction</code>和<code>CostFunctionToFunctor</code>来完成这项工作。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">struct CameraProjection &#123;</span><br><span class="line">  CameraProjection(double* observation)</span><br><span class="line">    intrinsic_projection_(</span><br><span class="line">      new NumericDiffCostFunction&lt;IntrinsicProjection, CENTRAL, 2, 5, 3&gt;(</span><br><span class="line">        new IntrinsicProjection(observation)) &#123;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  template &lt;typename T&gt;</span><br><span class="line">  bool operator()(const T* rotation,</span><br><span class="line">                  const T* translation,</span><br><span class="line">                  const T* intrinsics,</span><br><span class="line">                  const T* point,</span><br><span class="line">                  T* residuals) const &#123;</span><br><span class="line">    T transformed_point[3];</span><br><span class="line">    RotateAndTranslatePoint(rotation, translation, point, transformed_point);</span><br><span class="line">    return intrinsic_projection_(intrinsics, transformed_point, residual);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  CostFunctionToFunctor&lt;2,5,3&gt; intrinsic_projection_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> #### DynamicCostFunctionToFunctor <code>DynamicCostFunctionToFunctor</code>提供<code>CostFunctionToFunctor</code>一样的功能，对于参数向量和残差的个数和大小在编译期未知的情况。模板函数对象的形式如下： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">template&lt;typename T&gt;</span><br><span class="line">bool operator()(T const* const* parameters, T* residuals) const;</span><br></pre></td></tr></table></figure> 和<code>CostFunctionToFunctor</code>给出的例子一样，我们假设： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">class IntrinsicProjection : public CostFunction &#123;</span><br><span class="line">  public:</span><br><span class="line">    IntrinsicProjection(const double* observation);</span><br><span class="line">    virtual bool Evaluate(double const* const* parameters,</span><br><span class="line">                          double* residuals,</span><br><span class="line">                          double** jacobians) const;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 是一个<code>CostFunction</code>实现一个在局部坐标系下的点到它的像平面的投影并从观测点投影减去它。将这个<code>CostFunction</code>用在模板函数对象里形式如下： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">struct CameraProjection &#123;</span><br><span class="line">  CameraProjection(double* observation)</span><br><span class="line">      : intrinsic_projection_(new IntrinsicProjection(observation)) &#123;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  template &lt;typename T&gt;</span><br><span class="line">  bool operator()(T const* const* parameters,</span><br><span class="line">                  T* residual) const &#123;</span><br><span class="line">    const T* rotation &#x3D; parameters[0];</span><br><span class="line">    const T* translation &#x3D; parameters[1];</span><br><span class="line">    const T* intrinsics &#x3D; parameters[2];</span><br><span class="line">    const T* point &#x3D; parameters[3];</span><br><span class="line"></span><br><span class="line">    T transformed_point[3];</span><br><span class="line">    RotateAndTranslatePoint(rotation, translation, point, transformed_point);</span><br><span class="line"></span><br><span class="line">    const T* projection_parameters[2];</span><br><span class="line">    projection_parameters[0] &#x3D; intrinsics;</span><br><span class="line">    projection_parameters[1] &#x3D; transformed_point;</span><br><span class="line">    return intrinsic_projection_(projection_parameters, residual);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  DynamicCostFunctionToFunctor intrinsic_projection_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 像<code>CostFunctionToFunctor</code>一样，<code>DynamicCostFunctionToFunctor</code>在构造函数里获得了<code>CostFunction</code>的所有权。 #### ConditionedCostFunction 这个类允许你对一个封装的代价函数的残差值应用不同的条件。比如说，你有一个代价函数可以得到N个值，但是你想总的代价不是所有这些值的平方和，可能你想对某些值应用不同的尺度，来改变它们对代价的贡献程度。 用法： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F;  my_cost_function produces N residuals</span><br><span class="line">CostFunction* my_cost_function &#x3D; ...</span><br><span class="line">CHECK_EQ(N, my_cost_function-&gt;num_residuals());</span><br><span class="line">vector&lt;CostFunction*&gt; conditioners;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F;  Make N 1x1 cost functions (1 parameter, 1 residual)</span><br><span class="line">CostFunction* f_1 &#x3D; ...</span><br><span class="line">conditioners.push_back(f_1);</span><br><span class="line"></span><br><span class="line">CostFunction* f_N &#x3D; ...</span><br><span class="line">conditioners.push_back(f_N);</span><br><span class="line">ConditionedCostFunction* ccf &#x3D;</span><br><span class="line">  new ConditionedCostFunction(my_cost_function, conditioners);</span><br></pre></td></tr></table></figure> ## 损失函数 对于最小二乘问题，最小化可能会遇到输入项包含外点的情况（完全错误的测量），这时就需要损失函数来减少它们的影响。<br />
+考虑一个SFM问题，未知项是3D点和相机参数，测量是图像坐标，描述的是相机坐标系下三维点的重投影位置。例如，我们想要建模具有消防栓和车辆的街道场景的几何结构，由一个不知道参数的运动相机观测。我们关心的3D点是消防栓的顶点，图像处理算法负责得到输入到ceres的测量值，可以得到顶点在所有图像帧的观测和匹配情况，但是有一帧把汽车上的点错误当成了消防栓上的点。如果我们不对这个特殊的残差做任何处理，这个错误观测将会导致结果偏离最优。<br />
+利用一个稳健的损失函数，可以减少较大残差的代价，外点项的权重较小就不会过多影响最终结果。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">class LossFunction &#123;</span><br><span class="line"> public:</span><br><span class="line">  virtual void Evaluate(double s, double out[3]) const &#x3D; 0;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure> 关键方法是<code>LossFunction::Evaluate()</code>，输入是一个非负标量<code>s</code>，计算一个<code>out</code>， <span class="math display">\[out = \begin{bmatrix}\rho(s), &amp; \rho&#39;(s), &amp; \rho&#39;&#39;(s)\end{bmatrix}\]</span> 这里每项对代价函数的贡献由 <span class="math inline">\(\frac{1}{2}\rho(s)\)</span> 给出，<span class="math inline">\(s = \|f_i\|^2\)</span>。<br />
+最合理的 <span class="math inline">\(\rho\)</span>满足： <span class="math display">\[\begin{split}\rho(0) &amp;= 0\\
+\rho&#39;(0) &amp;= 1\\
+\rho&#39;(s) &amp;&lt; 1 \text{ in the outlier region}\\
+\rho&#39;&#39;(s) &amp;&lt; 0 \text{ in the outlier region}\end{split}\]</span></p>
+<h2 id="理论">理论</h2>
+<p>让我们考虑具有一个参数块的最小二乘问题。 <span class="math display">\[\min_x \frac{1}{2}\rho(f^2(x))\]</span> 稳健的梯度和高斯牛顿黑塞矩阵为： <span class="math display">\[\begin{split}g(x) &amp;= \rho&#39;J^\top(x)f(x)\\
+H(x) &amp;= J^\top(x)\left(\rho&#39; + 2 \rho&#39;&#39;f(x)f^\top(x)\right)J(x)\end{split}\]</span> 这里忽略了<span class="math inline">\(f(x)\)</span> 的二阶梯度。注意如果 <span class="math inline">\(\rho&#39;&#39;f(x)^\top f(x) + \frac{1}{2}\rho&#39; &lt; 0\)</span>， 那么 <span class="math inline">\(H(x)\)</span> 是非正定的。否则就可以调整残差和雅可比矩阵的权重。</p>
+<h2 id="problem">Problem</h2>
+<p><code>Problem</code>类实现了稳健的边界约束的非线性最小二乘问题，利用<code>Problem::AddResidualBlock()</code>和 <code>Problem::AddParameterBlock()</code>来创建最小二乘问题。 例如，一个包含三个大小分别为3,4,5的参数块和大小为2和6的残差块的问题： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">double x1[] &#x3D; &#123; 1.0, 2.0, 3.0 &#125;;</span><br><span class="line">double x2[] &#x3D; &#123; 1.0, 2.0, 3.0, 5.0 &#125;;</span><br><span class="line">double x3[] &#x3D; &#123; 1.0, 2.0, 3.0, 6.0, 7.0 &#125;;</span><br><span class="line"></span><br><span class="line">Problem problem;</span><br><span class="line">problem.AddResidualBlock(new MyUnaryCostFunction(...), x1);</span><br><span class="line">problem.AddResidualBlock(new MyBinaryCostFunction(...), x2, x3);</span><br></pre></td></tr></table></figure> <code>Problem::AddResidualBlock()</code>向最小二乘问题中添加一个残差块，它添加一个<code>CostFunction</code>， 一个可选的<code>LossFunction</code>，并连接<code>CostFunction</code>到参数块的集合中。<br />
+代价函数带有它期望的参数块大小的信息，函数会检查那些与在<code>parameter block</code>列出的参数块大小 匹配的情况，如果检测到误匹配则程序终止。<code>loss_function</code>可为空，这样每一项的代价就只是残差的平方。</p>
+<p>用户可以通过<code>Problem::AddParameterBlock()</code>来显式地添加参数块。这会引起额外的正确性检查； 但是<code>Problem::AddResidualBlock()</code>隐式地添加参数块（如果不存在的话），所以并不需要显式地 调用<code>Problem::AddParameterBlock()</code>。</p>
+<p><code>Problem::AddResidualBlock()</code>显示得添加一个参数块到 <code>Problem</code> 中。用户可以选择将一个 <code>LocalParameterization</code> 和参数块相关联。重复调用相同的参数会被忽略。重复调用相同的double指针但用不同的大小会导致未定义行为。</p>
+<p>使用<code>Problem::SetParameterBlockConstant()</code>可以设置任何参数块为常量，使用<code>Problem::SetParameterBlockVariable()</code>来取消。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Meng Zhili
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://example.com/2019/05/12/ceres-modeling-non-linear-least-squares/" title="Ceres-Modeling Non-Linear Least Squares">http://example.com/2019/05/12/ceres-modeling-non-linear-least-squares/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/non-linear-least-squares/" rel="tag"># non-linear least squares</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/04/20/cpp-templates-basic/" rel="prev" title="cpp templates basic">
+                  <i class="fa fa-chevron-left"></i> cpp templates basic
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/09/15/ceres-solving-non-linear-least-squares/" rel="next" title="ceres-Solving non-linear least squares problem">
+                  ceres-Solving non-linear least squares problem <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Meng Zhili</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+  <script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+        tags: 'none'
+      },
+      options: {
+        renderActions: {
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              const target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    const script = document.createElement('script');
+    script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+    script.defer = true;
+    document.head.appendChild(script);
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.typesetClear();
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+
+
+</body>
+</html>

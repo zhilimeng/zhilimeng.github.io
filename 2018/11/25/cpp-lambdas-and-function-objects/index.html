@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/source/images/favicon-32x32-me.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/source/images/favicon-16x16-me.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","images":"/images","scheme":"Gemini","version":"8.2.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}};
+  </script>
+<meta name="description" content="Lambda表达式 c++11引入了lambdas表达式，可以用作参数或者一个局部对象。可以把它当作一个内联函数。最简单的lambda函数可以没有参数，例如： 123[]&amp;#123;  std::cout &lt;&lt; &quot;hello lambda&quot; &lt;&lt; std::endl;&amp;#125;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="C++11 Lambda表达式和函数对象">
+<meta property="og:url" content="http://example.com/2018/11/25/cpp-lambdas-and-function-objects/index.html">
+<meta property="og:site_name" content="Meng&#39;s Blog">
+<meta property="og:description" content="Lambda表达式 c++11引入了lambdas表达式，可以用作参数或者一个局部对象。可以把它当作一个内联函数。最简单的lambda函数可以没有参数，例如： 123[]&amp;#123;  std::cout &lt;&lt; &quot;hello lambda&quot; &lt;&lt; std::endl;&amp;#125;">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-11-25T00:10:33.000Z">
+<meta property="article:modified_time" content="2021-10-01T19:49:30.625Z">
+<meta property="article:author" content="Meng Zhili">
+<meta property="article:tag" content="C++11">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://example.com/2018/11/25/cpp-lambdas-and-function-objects/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>C++11 Lambda表达式和函数对象 | Meng's Blog</title>
+  
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Meng's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">To be rock not to roll</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#lambda%E8%A1%A8%E8%BE%BE%E5%BC%8F"><span class="nav-number">1.</span> <span class="nav-text">Lambda表达式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%AF%B9%E8%B1%A1"><span class="nav-number">2.</span> <span class="nav-text">函数对象</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Meng Zhili"
+      src="/images/blog-logo.jpg">
+  <p class="site-author-name" itemprop="name">Meng Zhili</p>
+  <div class="site-description" itemprop="description">focus creates reality</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/zhilimeng" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;zhilimeng" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://mengzhili_whu@163.com/" title="E-Mail → https:&#x2F;&#x2F;mengzhili_whu@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2018/11/25/cpp-lambdas-and-function-objects/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/blog-logo.jpg">
+      <meta itemprop="name" content="Meng Zhili">
+      <meta itemprop="description" content="focus creates reality">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Meng's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          C++11 Lambda表达式和函数对象
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-11-25 00:10:33" itemprop="dateCreated datePublished" datetime="2018-11-25T00:10:33+00:00">2018-11-25</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2021-10-01 19:49:30" itemprop="dateModified" datetime="2021-10-01T19:49:30+00:00">2021-10-01</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/C/" itemprop="url" rel="index"><span itemprop="name">C++</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="lambda表达式">Lambda表达式</h2>
+<p>c++11引入了lambdas表达式，可以用作参数或者一个局部对象。可以把它当作一个内联函数。最简单的lambda函数可以没有参数，例如： <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[]&#123;</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">&quot;hello lambda&quot;</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure> <span id="more"></span> ### lambda语法 lambda表达式总是以引导符号<code>[]</code>开始，里边可以指定<em>capture</em>捕获非静态外部变量,在lambda引导符号<code>[]</code>和函数体<code>&#123;&#125;</code>之间，可以指定参数<code>mutable</code>、异常说明、属性设定和返回类型，这些都是可选项，因此，完成的Lambda表达式如下： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[...]  (...)  mutable throw -&gt;retType &#123;...&#125;</span><br></pre></td></tr></table></figure> #### 捕获外部变量 - [=] 表示外部变量通过值拷贝方式传递给lambda，lambda函数体不会改变外部变量的值 - [&amp;] 表示外部变量通过引用方式传递给lambda，lambda函数体对外部变量具有写入权限 你可以对每个对象分别指定访问方式,例如： <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">int</span> y = <span class="number">42</span>;</span><br><span class="line"><span class="keyword">auto</span> qqq = [x,&amp;y]&#123;</span><br><span class="line">          <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">&quot;x: &quot;</span> &lt;&lt; x &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">          <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">&quot;y: &quot;</span> &lt;&lt; y &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">          ++y; <span class="comment">// OK</span></span><br><span class="line">&#125;;</span><br><span class="line">x = y = <span class="number">77</span>;</span><br><span class="line">qqq();</span><br><span class="line">qqq();</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">&quot;final y: &quot;</span> &lt;&lt; y &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br></pre></td></tr></table></figure> 输出： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">x:0</span><br><span class="line">y:77</span><br><span class="line">x:0</span><br><span class="line">y:78</span><br><span class="line">final y: 79</span><br></pre></td></tr></table></figure> 使用<code>mutable</code>关键字可以在函数体内修改按值传递的外部变量的值，例如： <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> id =<span class="number">0</span>;</span><br><span class="line"><span class="keyword">auto</span> f = [id]() <span class="keyword">mutable</span>&#123;</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">&quot;id: &quot;</span> &lt;&lt; id &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">  ++id; <span class="comment">// OK&#125;;</span></span><br><span class="line">id = <span class="number">42</span>;</span><br><span class="line">f();</span><br><span class="line">f();</span><br><span class="line">f();</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; id &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br></pre></td></tr></table></figure> 输出： <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">id: 0</span><br><span class="line">id: 1</span><br><span class="line">id: 2</span><br><span class="line">42</span><br></pre></td></tr></table></figure> #### 参数列表 和其他函数一样，lambda可以在圆括号内指定参数，注意，lambdas不能是模板，必须指定所有类型。例如： <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">auto</span> l = [](<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; s)&#123;<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; s &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>&#125;;</span><br><span class="line">l(<span class="string">&quot;hello lambda&quot;</span>);  <span class="comment">//prints &quot;hello lambda&quot;</span></span><br></pre></td></tr></table></figure> #### 返回类型 返回类型在<code>-&gt;</code>后指定，如果没有指定返回类型，lambda从返回值推断。例如： <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[]&#123;<span class="keyword">return</span> <span class="number">42</span>;&#125;</span><br></pre></td></tr></table></figure> 返回类型为<code>int</code>。 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[]()-&gt;<span class="keyword">double</span>&#123;<span class="keyword">return</span> <span class="number">42</span>;&#125;</span><br></pre></td></tr></table></figure> 返回类型为<code>double</code>。 #### 使用lambda 1. 使用lambda搜索集合中第一个值在x和y之间的元素 ~~~c++ #include <algorithm> #include <deque> #include <iostream> using namespace std; int main() { deque<int> coll = {1,3,19,5,13,7,11,2,17}; int x = 5,y = 12; auto pose = find_if(coll.begin(),coll.end(), <a href="int%20i">=</a>{ return i &gt; x &amp;&amp; i &lt; y; }); std::cout &lt;&lt; "first elem &gt; 5 and &lt; 12: " &lt;&lt; *pose &lt;&lt; endl; } ~~~<br />
+2. 使用lambda作为搜索条件 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;algorithm&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">string</span>&gt; coll&#123;<span class="string">&quot;2&quot;</span>,<span class="string">&quot;1&quot;</span>,<span class="string">&quot;12&quot;</span>,<span class="string">&quot;23&quot;</span>,<span class="string">&quot;14&quot;</span>,<span class="string">&quot;10&quot;</span>&#125;;</span><br><span class="line">  <span class="built_in">std</span>::sort(coll.begin(),coll.end(),</span><br><span class="line">          [](<span class="keyword">const</span> <span class="built_in">string</span>&amp; s1, <span class="keyword">const</span> <span class="built_in">string</span>&amp; s2)&#123;</span><br><span class="line">            <span class="keyword">if</span>(s1.size() == s2.size())</span><br><span class="line">              <span class="keyword">return</span> s1 &lt; s2;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">              <span class="keyword">return</span> s1.size() &lt; s2.size();</span><br><span class="line">          &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure> 总结：lambdas提供了一个方便、可读、快速、可维护的使用STL算法的方式。</p>
+<h2 id="函数对象">函数对象</h2>
+<p>anything behaves like a function is a funciton，如果一个类提供了函数调用操作符，那么这个类的对象就可以作为函数对象。例如： <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// simple function object that prints the passed argument</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">PrintInt</span>&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">operator</span><span class="params">()</span><span class="params">(<span class="keyword">int</span> elem)</span> <span class="keyword">const</span></span>&#123;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; elem &lt;&lt; <span class="string">&quot; &quot;</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="built_in">vector</span>&lt;<span class="keyword">int</span>&gt; coll&#123;<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>,<span class="number">6</span>,<span class="number">7</span>&#125;;</span><br><span class="line">  for_each(coll.begin(),coll.end(),PrintInt());</span><br><span class="line">  <span class="built_in">cout</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure> ### 使用函数对象的好处 1. 函数对象是具有状态的：函数对象可以有其他的成员函数和属性，实际上，由同一类型的两个不同函数对象表示的相同功能，在同一时间可以有不同的状态。 2. 每个函数对象都有一个自己的类型。 普通的函数只有在函数签名不同时才会有不同的类型。这对于用模板的泛型编程是一个很大的提升，因为你可以将函数行为作为模板参数传递。这样做可以使不同类型的容器利用同一类型的函数对象作为排序标准，确保你不会对不同排序标准的集合进行赋值，组合或者比较。 3. 函数对象通常比普通函数要快。 模板的概念通常允许更好的优化，因为更多细节在编译时定义。因此传递函数对象而不是普通函数通常会带来更好的性能。 示例： <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;list&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;algorithm&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="comment">//function object that adds the value with which it is initialized</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">AddValue</span>&#123;</span></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">int</span> theValue;      <span class="comment">// the value to add</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">  <span class="comment">// constructor initializes the value to add</span></span><br><span class="line">  AddValue(<span class="keyword">int</span> v):theValue(v)&#123;&#125;</span><br><span class="line">  <span class="comment">//the &quot;function call&quot; for the element adds the value</span></span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">operator</span><span class="params">()</span><span class="params">(<span class="keyword">int</span>&amp; elem)</span> <span class="keyword">const</span></span>&#123;</span><br><span class="line">    elem += theValue;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure> ## 参考文献 Josuttis N M . C++ Standard Library, The: A Tutorial and Reference, 2nd Edition[M]. 2012.</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Meng Zhili
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://example.com/2018/11/25/cpp-lambdas-and-function-objects/" title="C++11 Lambda表达式和函数对象">http://example.com/2018/11/25/cpp-lambdas-and-function-objects/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/C-11/" rel="tag"># C++11</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/11/11/Win10-VS2015-%E5%AE%8C%E6%95%B4%E9%85%8D%E7%BD%AEG2O-With-CHOLMOD-QGLViewer/" rel="prev" title="Win10 + VS2015 完整配置G2O With CHOLMOD QGLViewer">
+                  <i class="fa fa-chevron-left"></i> Win10 + VS2015 完整配置G2O With CHOLMOD QGLViewer
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/12/06/mathjax-basic-tutorial-and-reference/" rel="next" title="Mathjax基本教程和参考">
+                  Mathjax基本教程和参考 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Meng Zhili</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+  
+
+
+</body>
+</html>

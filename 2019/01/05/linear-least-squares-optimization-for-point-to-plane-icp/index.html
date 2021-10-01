@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/source/images/favicon-32x32-me.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/source/images/favicon-16x16-me.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","images":"/images","scheme":"Gemini","version":"8.2.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}};
+  </script>
+<meta name="description" content="摘要 ICP算法中选择点到平面的误差度量比点到点的误差度量要收敛得更快，在ICP算法得每次迭代中最小化点到平面误差通常是一个标准非线性最小二乘问题，求解通常非常慢，但两帧点云之间的旋转角度较小时，可以近似为线性最小二乘问题。 算法原理及公式推导 给定一个source点云和target点云，ICP算法在每次迭代中估计source点云和target点云之间的一致性点对集合，估计误差最小时的4x4刚体变">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linear point-to-plane ICP method">
+<meta property="og:url" content="http://example.com/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/index.html">
+<meta property="og:site_name" content="Meng&#39;s Blog">
+<meta property="og:description" content="摘要 ICP算法中选择点到平面的误差度量比点到点的误差度量要收敛得更快，在ICP算法得每次迭代中最小化点到平面误差通常是一个标准非线性最小二乘问题，求解通常非常慢，但两帧点云之间的旋转角度较小时，可以近似为线性最小二乘问题。 算法原理及公式推导 给定一个source点云和target点云，ICP算法在每次迭代中估计source点云和target点云之间的一致性点对集合，估计误差最小时的4x4刚体变">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/point-to-plane-error.png">
+<meta property="article:published_time" content="2019-01-05T22:32:55.000Z">
+<meta property="article:modified_time" content="2021-10-01T19:49:30.625Z">
+<meta property="article:author" content="Meng Zhili">
+<meta property="article:tag" content="registration">
+<meta property="article:tag" content="ICP">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/point-to-plane-error.png">
+
+
+<link rel="canonical" href="http://example.com/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Linear point-to-plane ICP method | Meng's Blog</title>
+  
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Meng's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">To be rock not to roll</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%91%98%E8%A6%81"><span class="nav-number">1.</span> <span class="nav-text">摘要</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%97%E6%B3%95%E5%8E%9F%E7%90%86%E5%8F%8A%E5%85%AC%E5%BC%8F%E6%8E%A8%E5%AF%BC"><span class="nav-number">2.</span> <span class="nav-text">算法原理及公式推导</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Meng Zhili"
+      src="/images/blog-logo.jpg">
+  <p class="site-author-name" itemprop="name">Meng Zhili</p>
+  <div class="site-description" itemprop="description">focus creates reality</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/zhilimeng" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;zhilimeng" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://mengzhili_whu@163.com/" title="E-Mail → https:&#x2F;&#x2F;mengzhili_whu@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/blog-logo.jpg">
+      <meta itemprop="name" content="Meng Zhili">
+      <meta itemprop="description" content="focus creates reality">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Meng's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linear point-to-plane ICP method
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-01-05 22:32:55" itemprop="dateCreated datePublished" datetime="2019-01-05T22:32:55+00:00">2019-01-05</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2021-10-01 19:49:30" itemprop="dateModified" datetime="2021-10-01T19:49:30+00:00">2021-10-01</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/SLAM/" itemprop="url" rel="index"><span itemprop="name">SLAM</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="摘要">摘要</h2>
+<p>ICP算法中选择点到平面的误差度量比点到点的误差度量要收敛得更快，在ICP算法得每次迭代中最小化点到平面误差通常是一个标准非线性最小二乘问题，求解通常非常慢，但两帧点云之间的旋转角度较小时，可以近似为线性最小二乘问题。</p>
+<h2 id="算法原理及公式推导">算法原理及公式推导</h2>
+<p>给定一个source点云和target点云，ICP算法在每次迭代中估计source点云和target点云之间的一致性点对集合，估计误差最小时的4x4刚体变换矩阵 <span class="math inline">\(\mathbf M\)</span>，当使用点到平面的误差度量时，最小化的目标是每个源点和它对应目标点所在平面距离的平方和。设源点为 <span class="math inline">\(\mathbf s_i = {(s_{ix},s_{iy},s_{iz},1)}^T\)</span>，对应的目标点为 <span class="math inline">\(\mathbf d_i = {(d_{ix},d_{iy},d_{iz},1)}^T\)</span>，<span class="math inline">\(\mathbf n_i = {(n_{ix},n_{iy},n_{iz},0)}^T\)</span> 是 <span class="math inline">\(\mathbf d_i\)</span>处的单位法向量，ICP每次迭代的目标是找到一个最佳的 <span class="math inline">\(\mathbf M_{opt}\)</span> 使： <span class="math display">\[\mathbf M_{opt} = argmin\sum_i{((M\cdot s_i - d_i)\cdot n_i)}^2  (1)\]</span><br />
+<img src="/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/point-to-plane-error.png" class="" title="point2plane"> 刚体变换矩阵 <span class="math inline">\(\mathbf M\)</span>由一个旋转矩阵 <span class="math inline">\(\mathbf R(\alpha ,\beta,\gamma)\)</span> 和平移矩阵 <span class="math inline">\(\mathbf T(t_x,t_y,t_z)\)</span> 组成。 <span class="math display">\[ \mathbf M = \mathbf R(\alpha ,\beta,\gamma)\cdot \mathbf T(t_x,t_y,t_z)\]</span> 其中 <span class="math display">\[\mathbf T(t_x,t_y,t_z) = \begin{pmatrix}
+1 &amp; 0 &amp; 0 &amp; t_x \\
+0 &amp; 1 &amp; 0 &amp; t_y \\
+0 &amp; 0 &amp; 1 &amp; t_z \\
+0 &amp; 0 &amp; 0 &amp; 1 \\ \end{pmatrix}\]</span></p>
+<p><span class="math display">\[\mathbf R(\alpha,\beta,\gamma) = \begin{pmatrix}
+r_{11} &amp; r_{12} &amp; r_{13} &amp; 0 \\
+r_{21} &amp; r_{22} &amp; r_{23} &amp; 0 \\
+r_{31} &amp; r_{32} &amp; r_{33} &amp; 0 \\
+0 &amp; 0 &amp; 0 &amp; 1 \\ \end{pmatrix}\]</span> 这里： <span class="math inline">\(\alpha\)</span>，<span class="math inline">\(\beta\)</span>，<span class="math inline">\(\gamma\)</span> 分别为x轴，y轴和z轴的旋转角度。 <span class="math display">\[
+\begin{aligned}
+r_{11} &amp;=\cos\gamma \cos\beta, \\
+r_{12} &amp;=-\sin\gamma \cos\alpha + \cos\gamma\sin\beta\sin\alpha, \\
+r_{13} &amp;=\sin\gamma\sin\alpha + \cos\gamma\sin\beta\sin\alpha, \\
+r_{21} &amp;=\sin\gamma\cos\beta, \\
+r_{22} &amp;=\cos\gamma\cos\alpha + \sin\gamma\sin\beta\sin\alpha, \\
+r_{23} &amp;=-\cos\gamma\sin\alpha + \sin\gamma\sin\beta\cos\alpha, \\
+r_{31} &amp;= -\sin\beta, \\
+r_{32} &amp;= \cos\beta\sin\alpha, \\
+r_{33} &amp;= \cos\beta\cos\alpha. \\
+\end{aligned}
+\]</span> ### 线性化 当角度 <span class="math inline">\(\theta \approx 0\)</span>时，得到 <span class="math inline">\(\sin\theta \approx \theta\)</span> 和 <span class="math inline">\(\cos\theta \approx 1\)</span>，因此，当 <span class="math inline">\(\alpha,\beta,\gamma \approx 0\)</span>时， <span class="math display">\[\mathbf R(\alpha,\beta,\gamma) \approx
+ \begin{pmatrix}
+1 &amp; \alpha\beta - \gamma &amp; \alpha\gamma + \beta &amp; 0 \\
+\gamma &amp; \alpha\beta\gamma + 1 &amp; \beta\gamma - \alpha &amp; 0 \\
+-\beta &amp; \alpha &amp; 1 &amp; 0 \\
+0 &amp; 0 &amp; 0 &amp; 1 \\
+\end{pmatrix} \approx
+\begin{pmatrix}
+1 &amp; -\gamma &amp; \beta &amp; 0 \\
+\gamma &amp; 1 &amp; -\alpha &amp; 0 \\
+-\beta &amp; \alpha &amp; 1 &amp; 0 \\
+0 &amp; 0 &amp; 0 &amp; 1 \\
+\end{pmatrix}
+\]</span> 变换矩阵 <span class="math inline">\(\mathbf M\)</span> 近似为 <span class="math display">\[\mathbf{\hat M} = \mathbf T(t_x,t_y,t_z) \cdot \mathbf{\hat R}(\alpha,\beta,\gamma) \\ =
+\begin{pmatrix}
+1 &amp; -\gamma &amp; \beta &amp; t_x \\
+\gamma &amp; 1 &amp; -\alpha &amp; t_y \\
+-\beta &amp; \alpha &amp; 1 &amp; t_z \\
+0 &amp; 0 &amp; 0 &amp; 1 \\
+\end{pmatrix}\]</span> 最小化目标方程可以重写为： <span class="math display">\[\mathbf {\hat M_{opt}} = argmin\sum_i{((\mathbf {\hat M}\cdot s_i - d_i)\cdot n_i)}^2\]</span> <span class="math inline">\((\mathbf {\hat M}\cdot s_i - d_i)\cdot n_i\)</span> 可以写为六个参数 <span class="math inline">\(\alpha\)</span>，<span class="math inline">\(\beta\)</span>，<span class="math inline">\(\gamma\)</span>，<span class="math inline">\(t_x\)</span>，<span class="math inline">\(t_y\)</span> 和 <span class="math inline">\(t_z\)</span>的线性表达式： <span class="math display">\[(\mathbf {\hat M}\cdot s_i - d_i)\cdot n_i =
+  \left(\mathbf {\hat M} \cdot
+  \begin{pmatrix}
+  s_{ix} \\ s_{iy} \\ s_{iz} \\ 1 \\
+  \end{pmatrix} - \begin{pmatrix}d_{ix} \\ d_{iy} \\ d_{iz} \\ 1 \\ \end{pmatrix}
+  \right) \cdot \begin{pmatrix}n_{ix} \\ n_{iy} \\ n_{iz} \\ 0 \\ \end{pmatrix} \\
+  = [(n_{iz}s_{iy}-n_{iy}s_{iz})\alpha + (n_{ix}s_{iz} - n_{iz}s_{ix})\beta + (n_{iy}s_{ix} - n_{ix}s_{iy})\gamma \\ + n_{ix}t_x + n_{iy}t_y + n_{iz}t_z] - \\ [n_{ix}d_{ix} + n_{iy}d_{iy}+n_{iz}d_{iz} - n_{ix}s_{ix} - n_{iy}s_{iy} - n_{iz}s_{iz}]
+  \]</span> 给出N对一致性点，可将表达式写成矩阵的形式： <span class="math display">\[\mathbf{Ax - b}\]</span> 这里： <span class="math display">\[\mathbf b = \begin{pmatrix}
+n_{1x}d_{1x} + n_{1y}d_{1y} + n_{1z}d_{1z} - n_{1x}s_{1x} - n_{1y}s_{1y} - n_{1z}s_{1z} \\
+n_{2x}d_{2x} + n_{2y}d_{2y} + n_{2z}d_{2z} - n_{2x}s_{2x} - n_{2y}s_{2y} - n_{2z}s_{2z} \\
+\vdots \\
+n_{Nx}d_{Nx} + n_{Ny}d_{Ny} + n_{Nz}d_{Nz} - n_{Nx}s_{Nx} - n_{Ny}s_{Ny} - n_{Nz}s_{Nz} \\
+ \end{pmatrix}\]</span></p>
+<p><span class="math display">\[\mathbf x = {(\alpha \quad \beta \quad \gamma \quad t_x \quad t_y \quad t_z)}^T\]</span></p>
+<p><span class="math display">\[\mathbf A = \begin{pmatrix}
+ a_{11} &amp; a_{12} &amp; a_{13} &amp; n_{1x} &amp; n_{1y} &amp; n_{1z} \\
+ a_{21} &amp; a_{22} &amp; a_{23} &amp; n_{2x} &amp; n_{2y} &amp; n_{2z} \\
+ \vdots &amp; \vdots &amp; \vdots &amp; \vdots &amp; \vdots &amp; \vdots \\
+  a_{N1} &amp; a_{N2} &amp; a_{N3} &amp; n_{Nx} &amp; n_{Ny} &amp; n_{Nz} \\
+\end{pmatrix}\]</span> 这里： <span class="math display">\[
+\begin{array}{c}
+a_{i1} = n_{iz}s{iy} - n_{iy}s_{iz} \\
+a_{i2} = n_{ix}s{iz} - n_{iz}s_{ix} \\
+a_{i3} = n_{iy}s{ix} - n_{ix}s_{iy}
+\end{array}
+\]</span> 因此： <span class="math display">\[min\sum_i{((\mathbf {\hat M}\cdot s_i - d_i)\cdot n_i)}^2 = min{|\mathbf{Ax-b}|}^2\]</span> 通过解方程 <span class="math inline">\(\mathbf{Ax=b}\)</span> 可以求得最佳的变换矩阵 <span class="math inline">\(\mathbf {\hat M_{opt}}\)</span> ## 代码实现 pcl配准模块实现了point to plane lls，参考transformation_estimation_point_to_plane_lls.hpp ，在实际实现时，为了提高计算的数值稳定性通常先将点云归一化，再进行配准。 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br></pre></td><td class="code"><pre><span class="line">Matrix6d ATA;</span><br><span class="line">Vector6d ATb;</span><br><span class="line">ATA.setZero ();</span><br><span class="line">ATb.setZero ();</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; Approximate as a linear least squares problem</span><br><span class="line">while (source_it.isValid () &amp;&amp; target_it.isValid ())</span><br><span class="line">&#123;</span><br><span class="line">  if (!pcl_isfinite (source_it-&gt;x) ||</span><br><span class="line">      !pcl_isfinite (source_it-&gt;y) ||</span><br><span class="line">      !pcl_isfinite (source_it-&gt;z) ||</span><br><span class="line">      !pcl_isfinite (target_it-&gt;x) ||</span><br><span class="line">      !pcl_isfinite (target_it-&gt;y) ||</span><br><span class="line">      !pcl_isfinite (target_it-&gt;z) ||</span><br><span class="line">      !pcl_isfinite (target_it-&gt;normal_x) ||</span><br><span class="line">      !pcl_isfinite (target_it-&gt;normal_y) ||</span><br><span class="line">      !pcl_isfinite (target_it-&gt;normal_z))</span><br><span class="line">  &#123;</span><br><span class="line">    ++target_it;</span><br><span class="line">    ++source_it;    </span><br><span class="line">    continue;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  const float &amp; sx &#x3D; source_it-&gt;x;</span><br><span class="line">  const float &amp; sy &#x3D; source_it-&gt;y;</span><br><span class="line">  const float &amp; sz &#x3D; source_it-&gt;z;</span><br><span class="line">  const float &amp; dx &#x3D; target_it-&gt;x;</span><br><span class="line">  const float &amp; dy &#x3D; target_it-&gt;y;</span><br><span class="line">  const float &amp; dz &#x3D; target_it-&gt;z;</span><br><span class="line">  const float &amp; nx &#x3D; target_it-&gt;normal[0];</span><br><span class="line">  const float &amp; ny &#x3D; target_it-&gt;normal[1];</span><br><span class="line">  const float &amp; nz &#x3D; target_it-&gt;normal[2];</span><br><span class="line"></span><br><span class="line">  double a &#x3D; nz*sy - ny*sz;</span><br><span class="line">  double b &#x3D; nx*sz - nz*sx;</span><br><span class="line">  double c &#x3D; ny*sx - nx*sy;</span><br><span class="line"></span><br><span class="line">  &#x2F;&#x2F;    0  1  2  3  4  5</span><br><span class="line">  &#x2F;&#x2F;    6  7  8  9 10 11</span><br><span class="line">  &#x2F;&#x2F;   12 13 14 15 16 17</span><br><span class="line">  &#x2F;&#x2F;   18 19 20 21 22 23</span><br><span class="line">  &#x2F;&#x2F;   24 25 26 27 28 29</span><br><span class="line">  &#x2F;&#x2F;   30 31 32 33 34 35</span><br><span class="line"></span><br><span class="line">  ATA.coeffRef (0) +&#x3D; a * a;</span><br><span class="line">  ATA.coeffRef (1) +&#x3D; a * b;</span><br><span class="line">  ATA.coeffRef (2) +&#x3D; a * c;</span><br><span class="line">  ATA.coeffRef (3) +&#x3D; a * nx;</span><br><span class="line">  ATA.coeffRef (4) +&#x3D; a * ny;</span><br><span class="line">  ATA.coeffRef (5) +&#x3D; a * nz;</span><br><span class="line">  ATA.coeffRef (7) +&#x3D; b * b;</span><br><span class="line">  ATA.coeffRef (8) +&#x3D; b * c;</span><br><span class="line">  ATA.coeffRef (9) +&#x3D; b * nx;</span><br><span class="line">  ATA.coeffRef (10) +&#x3D; b * ny;</span><br><span class="line">  ATA.coeffRef (11) +&#x3D; b * nz;</span><br><span class="line">  ATA.coeffRef (14) +&#x3D; c * c;</span><br><span class="line">  ATA.coeffRef (15) +&#x3D; c * nx;</span><br><span class="line">  ATA.coeffRef (16) +&#x3D; c * ny;</span><br><span class="line">  ATA.coeffRef (17) +&#x3D; c * nz;</span><br><span class="line">  ATA.coeffRef (21) +&#x3D; nx * nx;</span><br><span class="line">  ATA.coeffRef (22) +&#x3D; nx * ny;</span><br><span class="line">  ATA.coeffRef (23) +&#x3D; nx * nz;</span><br><span class="line">  ATA.coeffRef (28) +&#x3D; ny * ny;</span><br><span class="line">  ATA.coeffRef (29) +&#x3D; ny * nz;</span><br><span class="line">  ATA.coeffRef (35) +&#x3D; nz * nz;</span><br><span class="line"></span><br><span class="line">  double d &#x3D; nx*dx + ny*dy + nz*dz - nx*sx - ny*sy - nz*sz;</span><br><span class="line">  ATb.coeffRef (0) +&#x3D; a * d;</span><br><span class="line">  ATb.coeffRef (1) +&#x3D; b * d;</span><br><span class="line">  ATb.coeffRef (2) +&#x3D; c * d;</span><br><span class="line">  ATb.coeffRef (3) +&#x3D; nx * d;</span><br><span class="line">  ATb.coeffRef (4) +&#x3D; ny * d;</span><br><span class="line">  ATb.coeffRef (5) +&#x3D; nz * d;</span><br><span class="line"></span><br><span class="line">  ++target_it;</span><br><span class="line">  ++source_it;    </span><br><span class="line">&#125;</span><br><span class="line">ATA.coeffRef (6) &#x3D; ATA.coeff (1);</span><br><span class="line">ATA.coeffRef (12) &#x3D; ATA.coeff (2);</span><br><span class="line">ATA.coeffRef (13) &#x3D; ATA.coeff (8);</span><br><span class="line">ATA.coeffRef (18) &#x3D; ATA.coeff (3);</span><br><span class="line">ATA.coeffRef (19) &#x3D; ATA.coeff (9);</span><br><span class="line">ATA.coeffRef (20) &#x3D; ATA.coeff (15);</span><br><span class="line">ATA.coeffRef (24) &#x3D; ATA.coeff (4);</span><br><span class="line">ATA.coeffRef (25) &#x3D; ATA.coeff (10);</span><br><span class="line">ATA.coeffRef (26) &#x3D; ATA.coeff (16);</span><br><span class="line">ATA.coeffRef (27) &#x3D; ATA.coeff (22);</span><br><span class="line">ATA.coeffRef (30) &#x3D; ATA.coeff (5);</span><br><span class="line">ATA.coeffRef (31) &#x3D; ATA.coeff (11);</span><br><span class="line">ATA.coeffRef (32) &#x3D; ATA.coeff (17);</span><br><span class="line">ATA.coeffRef (33) &#x3D; ATA.coeff (23);</span><br><span class="line">ATA.coeffRef (34) &#x3D; ATA.coeff (29);</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; Solve A*x &#x3D; b</span><br><span class="line">Vector6d x &#x3D; static_cast&lt;Vector6d&gt; (ATA.inverse () * ATb);</span><br></pre></td></tr></table></figure></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Meng Zhili
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://example.com/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/" title="Linear point-to-plane ICP method">http://example.com/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/registration/" rel="tag"># registration</a>
+              <a href="/tags/ICP/" rel="tag"># ICP</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/12/17/efficient-variants-of-the-ICP-algorithm/" rel="prev" title="ICP算法及其变种">
+                  <i class="fa fa-chevron-left"></i> ICP算法及其变种
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/01/29/dense-vo-approach-overview/" rel="next" title="dense vo- direct method">
+                  dense vo- direct method <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Meng Zhili</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+  <script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+        tags: 'none'
+      },
+      options: {
+        renderActions: {
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              const target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    const script = document.createElement('script');
+    script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+    script.defer = true;
+    document.head.appendChild(script);
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.typesetClear();
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+
+
+</body>
+</html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/source/images/favicon-32x32-me.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/source/images/favicon-16x16-me.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","images":"/images","scheme":"Gemini","version":"8.2.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"}};
+  </script>
+<meta name="description" content="基础知识 相机模型 相机模型描述了三维世界点到二维图像坐标点之间的映射，三维坐标到二维坐标的映射 \(\pi\) 称为投影。表示为： \[ \pi : {\mathbb R}^3 \rightarrow {\mathbb R}^3 \]  设2D图像点 \(x\) 坐标为 \((x,y)\)，对应的3D点为 \({\mathbf X}\)，坐标为 \((X,Y,Z)\)。有下列等式： \[\beg">
+<meta property="og:type" content="article">
+<meta property="og:title" content="dense vo- direct method">
+<meta property="og:url" content="http://example.com/2019/01/29/dense-vo-approach-overview/index.html">
+<meta property="og:site_name" content="Meng&#39;s Blog">
+<meta property="og:description" content="基础知识 相机模型 相机模型描述了三维世界点到二维图像坐标点之间的映射，三维坐标到二维坐标的映射 \(\pi\) 称为投影。表示为： \[ \pi : {\mathbb R}^3 \rightarrow {\mathbb R}^3 \]  设2D图像点 \(x\) 坐标为 \((x,y)\)，对应的3D点为 \({\mathbf X}\)，坐标为 \((X,Y,Z)\)。有下列等式： \[\beg">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2019/01/29/dense-vo-approach-overview/camera_model.png">
+<meta property="og:image" content="http://example.com/2019/01/29/dense-vo-approach-overview/photo_consistency.png">
+<meta property="article:published_time" content="2019-01-29T10:11:04.000Z">
+<meta property="article:modified_time" content="2021-10-01T19:49:30.625Z">
+<meta property="article:author" content="Meng Zhili">
+<meta property="article:tag" content="registration">
+<meta property="article:tag" content="RGBD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2019/01/29/dense-vo-approach-overview/camera_model.png">
+
+
+<link rel="canonical" href="http://example.com/2019/01/29/dense-vo-approach-overview/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>dense vo- direct method | Meng's Blog</title>
+  
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Meng's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">To be rock not to roll</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86"><span class="nav-number">1.</span> <span class="nav-text">基础知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%B8%E6%9C%BA%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.1.</span> <span class="nav-text">相机模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9D%8E%E4%BB%A3%E6%95%B0%E6%B1%82%E5%AF%BC"><span class="nav-number">1.2.</span> <span class="nav-text">李代数求导</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BA%BF%E6%80%A7%E5%8C%96"><span class="nav-number">1.3.</span> <span class="nav-text">线性化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#forward-additive-algorithm"><span class="nav-number">1.3.1.</span> <span class="nav-text">Forward Additive Algorithm</span></a></li></ol></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Meng Zhili"
+      src="/images/blog-logo.jpg">
+  <p class="site-author-name" itemprop="name">Meng Zhili</p>
+  <div class="site-description" itemprop="description">focus creates reality</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/zhilimeng" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;zhilimeng" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://mengzhili_whu@163.com/" title="E-Mail → https:&#x2F;&#x2F;mengzhili_whu@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+  <div class="cc-license site-overview-item animated" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2019/01/29/dense-vo-approach-overview/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/blog-logo.jpg">
+      <meta itemprop="name" content="Meng Zhili">
+      <meta itemprop="description" content="focus creates reality">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Meng's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          dense vo- direct method
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-01-29 10:11:04" itemprop="dateCreated datePublished" datetime="2019-01-29T10:11:04+00:00">2019-01-29</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2021-10-01 19:49:30" itemprop="dateModified" datetime="2021-10-01T19:49:30+00:00">2021-10-01</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/SLAM/" itemprop="url" rel="index"><span itemprop="name">SLAM</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="基础知识">基础知识</h2>
+<h3 id="相机模型">相机模型</h3>
+<p>相机模型描述了三维世界点到二维图像坐标点之间的映射，三维坐标到二维坐标的映射 <span class="math inline">\(\pi\)</span> 称为投影。表示为： <span class="math display">\[ \pi : {\mathbb R}^3 \rightarrow {\mathbb R}^3 \]</span> <img src="/2019/01/29/dense-vo-approach-overview/camera_model.png" class="" title="camera model"> 设2D图像点 <span class="math inline">\(x\)</span> 坐标为 <span class="math inline">\((x,y)\)</span>，对应的3D点为 <span class="math inline">\({\mathbf X}\)</span>，坐标为 <span class="math inline">\((X,Y,Z)\)</span>。有下列等式： <span class="math display">\[\begin{array}{c}
+\pi(X,Y,Z)\rightarrow(x,y) \\
+x = \frac{X \cdot f_x}{Z} + c_x \\
+y = \frac{Y \cdot f_y}{Z} + c_y
+\end{array}\]</span> 如果深度 <span class="math inline">\(Z\)</span> 和相机参数 <span class="math inline">\((f_x,f_y,c_x,c_y)\)</span> 已知，像素点 <span class="math inline">\(x\)</span> 对应的3D坐标为： <span class="math display">\[\begin{array}{c}
+\pi^{-1}(x,y,Z) \rightarrow (X,Y,Z) \\
+X = \frac{x-c_x}{f_x}Z \\
+Y = \frac{y-c_y}{f_y}Z \\
+Z = Z
+\end{array}\]</span> ### 刚体变换 三维欧氏空间内的刚体变换保持向量的长度和夹角不发生变化，表示为： <span class="math display">\[g : {\mathbb R}^3 \rightarrow {\mathbb R}^3;  x \rightarrow g(x)\]</span> 设空间点 <span class="math inline">\(p\)</span> 的其次坐标为 <span class="math inline">\({(x,y,z,1)}^T\)</span>，经过变换后的空间点 <span class="math inline">\({p}&#39;= g(p) = ({x}&#39;,{y}&#39;,{z}&#39;,1)^T\)</span> <span class="math display">\[ g(p)= G\cdot p = \begin{pmatrix}
+r_{11} &amp; r_{12} &amp; r_{13} &amp; t_x \\
+r_{21} &amp; r_{22} &amp; r_{23} &amp; t_x \\
+r_{31} &amp; r_{32} &amp; r_{33} &amp; t_x \\
+0 &amp; 0 &amp; 0 &amp; 1 \end{pmatrix} \begin{pmatrix}
+x \\ y \\ z \\ 1 \end{pmatrix}\]</span> 有：</p>
+<p><span class="math display">\[\begin{array}{c}
+{x}&#39; = r_{11}x + r_{12}y + r_{13}z + t_x \\
+{y}&#39; = r_{21}x + r_{22}y + r_{23}z + t_y \\
+{z}&#39; = r_{31}x + r_{32}y + r_{33}z + t_z
+\end{array}\]</span></p>
+<h3 id="李代数求导">李代数求导</h3>
+<p>某空间点 <span class="math inline">\(p(x,y,z)\)</span> 经过一次变换 <span class="math inline">\(T\)</span> （对应李代数为 <span class="math inline">\(\xi\)</span>），得到 <span class="math inline">\({p}&#39; = Tp = ({x}&#39;,{y}&#39;,{z}&#39;)\)</span>。则变换后的点关于变换的导数为： <span class="math display">\[\begin{equation}\begin{aligned}\frac {\partial(Tp)}{\partial{\delta \xi}} &amp;= \begin{pmatrix} I &amp; -(Rp + t)^{\wedge} \end{pmatrix}  \\
+&amp;= \begin{pmatrix}  1 &amp; 0 &amp; 0 &amp; 0 &amp; {z}&#39; &amp; -{y}&#39;\\
+  0 &amp; 1 &amp; 0 &amp; -{z}&#39; &amp; 0 &amp; {x}&#39;\\
+  0 &amp; 0 &amp; 1 &amp; {y}&#39; &amp; -{x}&#39; &amp; 0 \end{pmatrix}\end{aligned}\end{equation}\]</span> ## 直接法公式推导 ### 光度不变假设 <img src="/2019/01/29/dense-vo-approach-overview/photo_consistency.png" class="" title="photo-consistency"></p>
+<p>点 <span class="math inline">\(p\)</span> 同时出现在图像 <span class="math inline">\(I_1\)</span> 和 <span class="math inline">\(I_2\)</span> 中，点 <span class="math inline">\(p\)</span> 投影在 <span class="math inline">\(I_1\)</span>上的像素坐标为 <span class="math inline">\(x\)</span>。给定一个相机的刚体变换 <span class="math inline">\(\xi\)</span>，变换方程 <span class="math inline">\(w(x)\)</span> 计算在 <span class="math inline">\(I_2\)</span>上的像素坐标，两者的灰度值应该一致，<span class="math inline">\(I_1(x) - I_2(w(x)) = 0\)</span>.<br />
+最小化光度误差： <span class="math display">\[\xi^* = arg min(I_2(w(\xi,x)) - I_1(x))^2\]</span> 变换函数 <span class="math inline">\(w(\xi,x)\)</span> 定义为： <span class="math display">\[w(\xi,x) = \pi(g(G(\xi),\pi^{-1}(x,Z_1(x))))\]</span></p>
+<h3 id="线性化">线性化</h3>
+<p>存在多种等价的线性化方法，这里介绍两种，第一种每次迭代时在上次估计的附近线性化，称为Forward Additive Algorithm。第二种在一个固定的点附近线性展开，在每次迭代后只需用上次估计的变换更新输入图像，只需在初始的点附近线性化，节省了计算代价，点的雅可比矩阵是固定的，称为Forward Compositional Algorithm</p>
+<h4 id="forward-additive-algorithm">Forward Additive Algorithm</h4>
+<p>位姿参数增量 <span class="math inline">\(\Delta \xi\)</span> 连接到上一次的估计。<span class="math inline">\(\xi_{k+1} = \log(\exp(\xi_k) \cdot \exp(\Delta\xi)) = \xi_k\oplus \Delta\xi\)</span><br />
+误差方程为： <span class="math display">\[r_i(\xi_{k+1}) = I_2(w(\xi_k\oplus \Delta\xi,x_i)) - I_1(x_i)\]</span> 线性化： <span class="math display">\[r_{lin,i}(\xi_{k+1}) = r_i(\xi_k) + J_i(\xi_k)\Delta\xi\]</span> 残差 <span class="math inline">\(r_i(\xi_k)\)</span> 为： <span class="math display">\[r_i(\xi_k) = I_2(w(\xi_k,x_i)) - I_1(x_i)\]</span> 根据链式法则，雅可比矩阵 <span class="math inline">\(J_i(\xi_k)\)</span> 可分解为： <span class="math display">\[J_i(\xi_k) = J_IJ_w = J_IJ_{\pi}J_gJ_G\]</span><br />
+其中， <span class="math inline">\(J_I\)</span>为像素在 x , y 方向的梯度， <span class="math inline">\(J_{\pi}\)</span> 为投影方程关与变换后的三维点的导数， <span class="math inline">\(J_gJ_G\)</span> 为变换后的三维点关于变换 <span class="math inline">\(\xi\)</span> 的导数。</p>
+<p><span class="math inline">\(p_i = (x,y,z)^T=\pi^{-1}(x_i,Z_1(x_i))\)</span>，<span class="math inline">\({x}&#39;,{y}&#39;,{z}&#39;\)</span> 为 <span class="math inline">\(p_i\)</span> 转换后的3D坐标。 <span class="math display">\[J_I = \begin{pmatrix}\Delta I_{2,x} &amp; \Delta I_{2,y}\end{pmatrix}\]</span></p>
+<p><span class="math display">\[J_{\pi} = \begin{pmatrix}
+  f_x\frac 1{z&#39;} &amp; 0 &amp; -f_x\frac { x&#39;}{ z&#39;^2} \\
+  0 &amp; f_y\frac 1{z&#39;} &amp; -f_y\frac {y&#39;}{z&#39;^2} \end{pmatrix}\]</span></p>
+<p><span class="math display">\[J_gJ_G = \begin{pmatrix}
+  1 &amp; 0 &amp; 0 &amp; 0 &amp; {z}&#39; &amp; -{y}&#39;\\
+  0 &amp; 1 &amp; 0 &amp; -{z}&#39; &amp; 0 &amp; {x}&#39;\\
+  0 &amp; 0 &amp; 1 &amp; {y}&#39; &amp; -{x}&#39; &amp; 0 \end{pmatrix}\]</span></p>
+<p>因此： <span class="math display">\[J_IJ_w = \begin{pmatrix}\Delta I_{2,x} &amp; \Delta I_{2,y}\end{pmatrix} \begin{pmatrix}
+  f_x\frac1{z&#39;} &amp; 0 &amp;-f_x\frac{x&#39;}{z&#39;^2} &amp; -f_x\frac{x&#39;y&#39;}{z&#39;^2} &amp; f_x(1 + \frac{x&#39;^2}{z&#39;^2}) &amp; -f_x\frac{y&#39;}{z&#39;} \\
+  0 &amp; f_y\frac1{z&#39;} &amp; -f_y\frac{y&#39;}{z&#39;^2} &amp; -f_y(1+\frac{y&#39;^2}{z&#39;^2}) &amp; f_y\frac{x&#39;y&#39;}{z&#39;^2} &amp; f_y\frac{x&#39;}{z&#39;}
+   \end{pmatrix}\]</span><br />
+雅可比矩阵 <span class="math inline">\(J_w\)</span>在每次迭代过程中都会改变，因为由深度图 <span class="math inline">\(Z_1\)</span> 得到的点 <span class="math inline">\(p_i\)</span> 都要经过上一次估计 <span class="math inline">\(\xi\)</span> 变换。 #### Forward Compositional Algorithm 与Forward Additive Algorithm不同，Forward Compositional是针对变换后的像素坐标而不是估计位姿。 误差方程为： <span class="math display">\[r_i(\xi_{k+1}) = I_2(w(\xi_k,w(\Delta\xi,x_i))) - I_1(x_i)\]</span> 线性化： <span class="math display">\[r_{lin,i}(\xi_{k+1}) = r_i(0) + J_i(0)\Delta\xi\]</span> 残差 <span class="math inline">\(r_i(\xi_k)\)</span> 为： <span class="math display">\[r_i(0) = I_2(w(\xi_k,x_i)) - I_1(x_i)\]</span> 根据链式法则，雅可比矩阵 <span class="math inline">\(J_i(\xi_k)\)</span> 可分解为： <span class="math display">\[J_i(0) = J_IJ_w = J_IJ_{\pi}J_gJ_G\]</span> 在 <span class="math inline">\(\Delta\xi = 0\)</span> 附近线性化，简化了三维点的雅可比矩阵，因为 <span class="math inline">\(G(0)\)</span> 为单位阵，因此在每次迭代过程中三维点的雅可比矩阵是不变的。因此各雅可比矩阵的定义为： <span class="math display">\[ J_I = \begin{pmatrix}\Delta I_{2,x} &amp; \Delta I_{2,y}\end{pmatrix}\]</span> <span class="math display">\[J_{\pi} = \begin{pmatrix}
+f_x\frac 1z &amp; 0 &amp; -f_x\frac x{z^2} \\
+0 &amp; f_y\frac 1z &amp; -f_y\frac y{z^2} \end{pmatrix}\]</span> <span class="math display">\[J_gJ_G = \begin{pmatrix}
+1 &amp; 0 &amp; 0 &amp; 0 &amp; z &amp; -y\\
+0 &amp; 1 &amp; 0 &amp; -z &amp; 0 &amp; x\\
+0 &amp; 0 &amp; 1 &amp; y &amp; -x &amp; 0 \end{pmatrix}\]</span> 因此： <span class="math display">\[J_IJ_w = \begin{pmatrix}\Delta I_{2,x} &amp; \Delta I_{2,y}\end{pmatrix} \begin{pmatrix}
+f_x\frac 1z &amp; 0 &amp;-f_x\frac x{z^2} &amp; -f_x\frac {xy}{z^2} &amp; f_x(1 + \frac {x^2}{z^2}) &amp; -f_x\frac yz \\
+0 &amp; f_y\frac 1z &amp; -f_y\frac y{z^2} &amp; -f_y(1+\frac {y^2}{z^2}) &amp; f_y\frac{xy}{z^2}  &amp; f_y\frac xy
+ \end{pmatrix}\]</span><br />
+在计算得到雅可比矩阵后，就可以在每次迭代过程中通过求解法方程得到位姿增量： <span class="math display">\[ J^TJ\delta_{\xi}=J^T\epsilon\]</span> <span class="math inline">\(\delta_{\xi}\)</span> 为位姿增量， <span class="math inline">\(\epsilon\)</span> 为光度残差 ## 光度误差+几何误差 类似光度误差，对于深度图可以定义几何误差 最小化几何误差： <span class="math display">\[\xi^* = arg min(D_2(w(\xi,x)) - D_1(x))^2\]</span> 这里的雅可比矩阵为： <span class="math display">\[J_i(0) = J_DJ_W - J_z\]</span> 其中 <span class="math inline">\(J_D\)</span> 为深度图 x, y 方向的梯度， <span class="math inline">\(J_W\)</span> 为误差方程关于变换的导数与光度误差的 <span class="math inline">\(J_W\)</span>一致， <span class="math inline">\(J_z\)</span> 为深度值(z)关于变换的导数，因此为三维点关于变换的雅可比矩阵的第三行。这里的几何误差类似与ICP的误差项。 ## 代码实现 dvo_slam实现的是光度误差+深度误差的Dense VO <a target="_blank" rel="noopener" href="https://github.com/tum-vision/dvo_slam">https://github.com/tum-vision/dvo_slam</a> ## 参考文献 [1] 高翔.等.视觉SLAM十四讲[M].中国工信出版集团<br />
+[2] Odometry from RGB-D Cameras for Autonomous Quadrocopters (C. Kerl), Master's thesis, Technical University Munich, 2012.<br />
+[3] Robust Odometry Estimation for RGB-D Cameras (C. Kerl, J. Sturm, D. Cremers), In International Conference on Robotics and Automation (ICRA), 2013.<br />
+[4] Dense Visual SLAM for RGB-D Cameras (C. Kerl, J. Sturm, D. Cremers), In Proc. of the Int. Conf. on Intelligent Robot Systems (IROS), 2013.<br />
+[5] Dense Continuous-Time Tracking and Mapping with Rolling Shutter RGB-D Cameras (C. Kerl, J. Stueckler, D. Cremers), In IEEE International Conference on Computer Vision (ICCV), 2015.</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Meng Zhili
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://example.com/2019/01/29/dense-vo-approach-overview/" title="dense vo- direct method">http://example.com/2019/01/29/dense-vo-approach-overview/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/registration/" rel="tag"># registration</a>
+              <a href="/tags/RGBD/" rel="tag"># RGBD</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/01/05/linear-least-squares-optimization-for-point-to-plane-icp/" rel="prev" title="Linear point-to-plane ICP method">
+                  <i class="fa fa-chevron-left"></i> Linear point-to-plane ICP method
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/03/17/cpp-concurrency-managing-threads/" rel="next" title="【c++ concurrency】 线程管理">
+                  【c++ concurrency】 线程管理 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Meng Zhili</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+  <script>
+  if (typeof MathJax === 'undefined') {
+    window.MathJax = {
+      tex: {
+        inlineMath: {'[+]': [['$', '$']]},
+        tags: 'none'
+      },
+      options: {
+        renderActions: {
+          insertedScript: [200, () => {
+            document.querySelectorAll('mjx-container').forEach(node => {
+              const target = node.parentNode;
+              if (target.nodeName.toLowerCase() === 'li') {
+                target.parentNode.classList.add('has-jax');
+              }
+            });
+          }, '', false]
+        }
+      }
+    };
+    const script = document.createElement('script');
+    script.src = '//cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+    script.defer = true;
+    document.head.appendChild(script);
+  } else {
+    MathJax.startup.document.state(0);
+    MathJax.typesetClear();
+    MathJax.texReset();
+    MathJax.typeset();
+  }
+</script>
+
+
+
+</body>
+</html>
